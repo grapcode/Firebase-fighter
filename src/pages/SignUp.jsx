@@ -1,24 +1,38 @@
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 import MyContainer from '../components/MyContainer';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase/firebase.config';
+
 import { toast } from 'react-toastify';
-import { useState } from 'react';
+import { useContext, useState } from 'react';
+import { AuthContext } from '../context/AuthContext';
 
 const SignUp = () => {
   const [show, setShow] = useState(false);
+
+  // 💥 Auth Provider
+  const {
+    createUserWithEmailAndPasswordFunc,
+    updateProfileFunc,
+    sendEmailVerificationFunc,
+    setLoading,
+    signOutFunc,
+    setUser,
+  } = useContext(AuthContext);
+
+  const navigate = useNavigate();
 
   // ⚡form submit handle
   const handleSignup = (e) => {
     e.preventDefault();
 
+    const displayName = e.target.name.value;
+    const photoURL = e.target.photo.value;
     const email = e.target.email.value;
     const password = e.target.password.value;
 
-    console.log('signup function', email, password);
+    // console.log('signup function', { displayName, photoURL, email, password });
 
     if (password.length < 6) {
       toast.error('Password should be at least 6 digit');
@@ -34,10 +48,37 @@ const SignUp = () => {
       return;
     }
 
-    createUserWithEmailAndPassword(auth, email, password)
+    //⚡ 1st step: create user
+    // createUserWithEmailAndPassword(auth, email, password)
+    createUserWithEmailAndPasswordFunc(email, password)
+      // 1st step:  email password
       .then((result) => {
-        console.log(result.user);
-        toast.success('Signup successful', result.user);
+        // 2nd step:  update Profile
+        updateProfileFunc(displayName, photoURL)
+          .then(() => {
+            console.log(result.user);
+            // 3rd step: email verification
+            sendEmailVerificationFunc()
+              .then((result) => {
+                console.log(result);
+                setLoading(false);
+
+                // Signout user
+                signOutFunc().then(() => {
+                  toast.success(
+                    'Signup successful. Check your email to validate your account'
+                  );
+                  setUser(null);
+                  navigate('/signin');
+                });
+              })
+              .catch((error) => {
+                toast.error(error.message);
+              });
+          })
+          .catch((error) => {
+            toast.error(error.message);
+          });
       })
       .catch((error) => {
         // console.log(error.message);
@@ -76,6 +117,27 @@ const SignUp = () => {
             </h2>
 
             <form onSubmit={handleSignup} className="space-y-4">
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Your Name"
+                  className="input input-bordered w-full bg-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                />
+              </div>
+              {/* Photo URL */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Photo</label>
+                <input
+                  type="text"
+                  name="photo"
+                  placeholder="Your photo URL"
+                  className="input input-bordered w-full bg-white/20 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                />
+              </div>
+              {/* email */}
               <div>
                 <label className="block text-sm font-medium mb-1">Email</label>
                 <input
@@ -86,6 +148,7 @@ const SignUp = () => {
                 />
               </div>
 
+              {/* password */}
               <div className="relative">
                 <label className="block text-sm font-medium mb-1">
                   Password
